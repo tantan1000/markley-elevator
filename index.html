@@ -2714,10 +2714,10 @@ const BGM_TRACKS = (function(){
   }
     return [
 
-    { id:'dawn', name:'時雨の古都', bars: buildKyotoEmotion(), barSec: 2.25 },
+    { id:'tycoon', name:'億万長者の道', bars: buildTycoon() },
     { id:'heal', name:'やさしい午後', bars: buildHeal() },
     { id:'uplift', name:'希望の経営', bars: buildUplift() },
-    { id:'tycoon', name:'億万長者の道', bars: buildTycoon() },
+    { id:'dawn', name:'時雨の古都', bars: buildKyotoEmotion(), barSec: 2.25 },
   ];
 })();
 let bgmTrackIndex = 0; 
@@ -9652,6 +9652,13 @@ const TUTORIAL_STEPS = [
 /* ===== 社外取締役モード専用チュートリアル ===== */
 const OD_TUTORIAL_STEPS = [
   {
+    id:'bgm',
+    title:'ようこそ',
+    body:'社外取締役として上場企業の監督を体験するモードです。まずは♪マークを押して音楽を再生しましょう。',
+    target:'bgm',
+    tab:null,
+  },
+  {
     id:'od-welcome',
     title:'社外取締役として就任',
     body:'このモードでは日常の営業・採用・価格・支店開設は操作しません。就任先は開始時に上場企業からランダムで決まり、あなたは取締役会・総会・委員会でCEOと戦略を監督します。評価指標は累計報酬です。',
@@ -9746,6 +9753,13 @@ const OD_TUTORIAL_STEPS = [
 
 /* ===== 機関投資家モード専用チュートリアル ===== */
 const ANALYST_TUTORIAL_STEPS = [
+  {
+    id:'bgm',
+    title:'ようこそ',
+    body:'独立系保守セクターに資金を配分する機関投資家として運用するモードです。まずは♪マークを押して音楽を再生しましょう。',
+    target:'bgm',
+    tab:null,
+  },
   {
     id:'an-welcome',
     title:'機関投資家として運用開始',
@@ -24141,7 +24155,7 @@ function doStartGame(name, difficultyKey, playMode){
     activeTab = 'overview';
     state.founderName = state.ceoName;
     if(state.playMode === 'outsideDirector'){
-      try{ bgmTrackIndex = 3; }catch(e){}
+      try{ bgmTrackIndex = 2; }catch(e){}
       state.isListed=true; state.exchange=state.exchange||'prime'; state.listedOn=['prime'];
       state.board={insiders:3,outsiders:2};
       // 就任先は上場相当の競合テンプレからランダム（プレイヤーは選べない）
@@ -24215,7 +24229,7 @@ function doStartGame(name, difficultyKey, playMode){
       }catch(e){}
 
     } else if(state.playMode === 'analyst'){
-      try{ bgmTrackIndex = 2; }catch(e){}
+      try{ bgmTrackIndex = 0; }catch(e){}
       const dm = (DIFFICULTIES[difficultyKey]||DIFFICULTIES.normal).cashMult;
       state.analystCash = Math.round(500000000 * (dm != null ? dm : 1));
       state.analystStartNav = state.analystCash;
@@ -24252,8 +24266,20 @@ function doStartGame(name, difficultyKey, playMode){
         }, 0);
       }catch(e){}
     } else {
+      try{ bgmTrackIndex = 0; }catch(e){}
+      state.tutorialDismissed=false; state.tutorialComplete=false; state.tutorialStarted=false; state.tutorialStage=0;
       pushCompanyChronicle(state, `${state.companyName}を設立（代表 ${state.ceoName}）`, 'milestone');
-      pushLog(state, `${state.companyName}を設立した。上部の「チュートリアル」で案内を開始できる。準備ができたら ▶ 再開しよう。`, 'good');
+      pushLog(state, `${state.companyName}を設立した。準備ができたら ▶ 再開しよう。`, 'good');
+      // 経営モード用チュートリアルを自動開始
+      try{
+        setTimeout(function(){
+          try{
+            if(state && state.playMode==='ceo' && typeof startTutorial==='function' && !state.tutorialComplete){
+              startTutorial();
+            }
+          }catch(e){}
+        }, 0);
+      }catch(e){}
     }
     render();
     stopTimer();
