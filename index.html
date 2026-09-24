@@ -101,6 +101,8 @@
     -webkit-font-smoothing:antialiased;
     padding-top:env(safe-area-inset-top);
     padding-bottom:env(safe-area-inset-bottom);
+    /* 上下バウンスで固定バーが食い込む体感を抑える */
+    overscroll-behavior-y: contain;
   }
   ::selection{background:var(--amber);color:var(--ink);}
   .mono{font-family:'JetBrains Mono',monospace;}
@@ -388,15 +390,28 @@
   .log-entry.good{border-left-color:var(--green);}
   .log-entry .qtag{color:var(--paper-dim);font-family:'JetBrains Mono',monospace;font-size:10px;margin-right:6px;}
 
-  /* 常時表示イベントティッカー */
+  /* 常時表示イベントティッカー
+     iOS: ホームインジケータ（safe-area）の上に載せ、バウンス時に
+     下から食い込んで窮屈に見える問題を防ぐ */
   .event-ticker{
-    position:fixed; left:0; right:0; bottom:0; z-index:40;
+    position:fixed; left:0; right:0;
+    bottom: env(safe-area-inset-bottom, 0px);
+    z-index:40;
     height:36px;
     background:linear-gradient(180deg, rgba(18,22,28,.92), rgba(12,14,18,.97));
     border-top:1px solid var(--steel-600);
     box-shadow: 0 -4px 20px rgba(0,0,0,.35);
     display:flex; align-items:center;
     overflow:hidden;
+    pointer-events:none;
+  }
+  /* セーフエリア部分を同色で埋め、上スクロールのゴムバンドで
+     下端が白く／別色で露出しないようにする */
+  .event-ticker::after{
+    content:'';
+    position:absolute; left:0; right:0; top:100%;
+    height: env(safe-area-inset-bottom, 0px);
+    background: rgba(12,14,18,.97);
     pointer-events:none;
   }
   .event-ticker .ticker-label{
@@ -479,9 +494,9 @@
     0%{ transform: translateX(0); }
     100%{ transform: translateX(-100%); }
   }
-  /* ティッカー分の余白 */
+  /* ティッカー分 + セーフエリア分の余白（固定バーに隠れないように） */
   body.has-ticker #app{
-    padding-bottom: 44px;
+    padding-bottom: calc(44px + env(safe-area-inset-bottom, 0px));
   }
   @media (prefers-reduced-motion: reduce){
     .event-ticker .ticker-move{
