@@ -10635,13 +10635,13 @@ function getTutorialVisualHtml(step){
       <div class="tut-visual">
         <div class="tv-title">定時株主総会の中身</div>
         <div class="tut-flow">
-          <div class="tf-step ok"><b>報告</b>業績予想・中計</div>
+          <div class="tf-step ok"><b>冒頭報告</b>業績予想・中計</div>
           <div class="tf-arrow">→</div>
           <div class="tf-step on"><b>議決</b>配当・役員など</div>
           <div class="tf-arrow">→</div>
           <div class="tf-step"><b>結果</b>可決/否決</div>
         </div>
-        <div class="tut-callout">業績や中計は「報告」のみ。賛成ボタンが並ぶのは本来の議案です。</div>
+        <div class="tut-callout">業績や中計は総会冒頭の「報告」のみ。議案確認・質疑・議決の画面には出ません。賛成ボタンが並ぶのは本来の議案です。</div>
       </div>`,
     'an-holding': `
       <div class="tut-visual">
@@ -33137,7 +33137,7 @@ setTimeout(render,300);
 <script>
 (function(){
   const AGM_STEPS = [
-    
+    {id:'open', label:'冒頭報告'},
     {id:'shq', label:'株主質問'},
     {id:'iiq', label:'機関質問'},
     {id:'vote', label:'議決'},
@@ -33631,7 +33631,7 @@ setTimeout(render,300);
 
     if(step.id === 'open'){
       modal = { type:'choice', title:`${mtgLab}定時株主総会 — ${ses.name}`,
-        body: head + `【開会】\n${ses.name}の${mtgLab}定時株主総会が始まりました。\n\n議案説明、経営陣・社外取締役への質疑、議決まで進行します。\nあなたの持分は ${Number(ses.own).toFixed(2)}%。\n\n時間は停止しています。総会が終わるまで四半期は自動進行しません。` + (ses.activist ? (`\n\n【競合アクティビスト登場】\n${ses.activist.name}（推定持分約${(ses.activist.pct*100).toFixed(1)}%）が議場にいます。\n要求: ${ses.activist.demand.label} — ${ses.activist.demand.detail}\n会社側と彼らの提案がぶつかる可能性があります。`) : ''),
+        body: head + `【開会】\n${ses.name}の${mtgLab}定時株主総会が始まりました。\n\n` + (function(){ try{ var b=(typeof window.markleyAgmFinBlock==='function')?window.markleyAgmFinBlock(r,s):''; return b?('【冒頭報告】\n'+b+'\n\n'):''; }catch(e){ return ''; } })() + `議案説明、経営陣・社外取締役への質疑、議決まで進行します。\nあなたの持分は ${Number(ses.own).toFixed(2)}%。\n\n時間は停止しています。総会が終わるまで四半期は自動進行しません。` + (ses.activist ? (`\n\n【競合アクティビスト登場】\n${ses.activist.name}（推定持分約${(ses.activist.pct*100).toFixed(1)}%）が議場にいます。\n要求: ${ses.activist.demand.label} — ${ses.activist.demand.detail}\n会社側と彼らの提案がぶつかる可能性があります。`) : ''),
         options: [{label:'議場に入る ▶', onClick:()=>{ gotoAgmStep(ses,'shq'); }}] };
     }
     else if(step.id === 'agenda'){
@@ -56030,15 +56030,10 @@ CIOスコア: ${Math.round(s.v7.score)}（${s.v7.grade}）／変化 ${cioDelta>=
     if(!block) return false;
     var m = (typeof modal!=='undefined') ? modal : window.modal;
     if(!m || !m.body || String(m.body).indexOf('【業績予想】')>=0) return false;
-    if(/【開会】/.test(m.body)){
-      m.body = m.body.replace(/【開会】[^\n]*\n/, function(mm){ return mm + '\n' + block + '\n'; });
-    } else if(/【議案/.test(m.body)){
-      m.body = m.body.replace(/【議案の確認】\n/, '【議案の確認】\n'+block+'\n\n');
-    } else {
-      var parts = String(m.body).split('\n\n');
-      if(parts.length>=2){ parts.splice(1,0,block); m.body = parts.join('\n\n'); }
-      else { m.body = block + '\n\n' + m.body; }
-    }
+    /* 業績予想・中計進捗は「冒頭報告」（開会画面）にのみ表示する。
+       議案確認・質疑・議決の各画面には出さない。 */
+    if(!/【開会】/.test(m.body)) return false;
+    m.body = m.body.replace(/【開会】[^\n]*\n/, function(mm){ return mm + '\n【冒頭報告】\n' + block + '\n'; });
     return true;
   }
 
@@ -56120,6 +56115,7 @@ CIOスコア: ${Math.round(s.v7.score)}（${s.v7.grade}）／変化 ${cioDelta>=
     }catch(e){}
   }, 400);
 
+  window.markleyAgmFinBlock = agmFinBlock;
   window.markleyEnsureRivalFinPlan = ensureRivalFinPlan;
   window.markleyTickRivalFinPlans = tickRivalFinPlans;
   window.markleyMidtermStatus = midtermStatus;
