@@ -10146,21 +10146,26 @@ function renderHeader(){
   utilG.appendChild(el('button',{class:'btn btn-small'+(bgmOn?' btn-primary':''), onclick:toggleBgm, title:bgmCurrentName(), 'data-tut':'bgm'}, bgmOn?('♪ '+bgmCurrentName()):'♪'));
   utilG.appendChild(el('button',{class:'btn btn-small', onclick:cycleBgmTrack, title:'曲を切り替え: '+bgmCurrentName()}, '曲'+((bgmTrackIndex%BGM_TRACKS.length)+1)));
   if(state && !state.gameOver && !(typeof isAnalystMode==='function' && isAnalystMode(state))){
-    const tutOn = isTutorialActive(state);
-    utilG.appendChild(el('button',{
-      class:'btn btn-small'+(tutOn?' btn-primary':''),
-      onclick:()=>{
-        if(isTutorialActive(state)){
-          
-          const st = currentTutorialStep();
-          if(st) applyTutorialStepContext(st);
-          render();
-        } else {
-          startTutorial();
-        }
-      },
-      title: tutOn ? 'チュートリアルを再表示' : 'チュートリアルを開始'
-    }, tutOn ? 'チュートリアル中' : 'チュートリアル'));
+    /* 経営モード：完了／スキップ後は画面選択からチュートリアルを消す */
+    ensureTutorialState(state);
+    const tutFinished = !!(state.tutorialComplete || state.tutorialDismissed);
+    const isOD = (typeof isOutsideDirectorMode==='function' && isOutsideDirectorMode(state));
+    if(!tutFinished || isOD){
+      const tutOn = isTutorialActive(state);
+      utilG.appendChild(el('button',{
+        class:'btn btn-small'+(tutOn?' btn-primary':''),
+        onclick:()=>{
+          if(isTutorialActive(state)){
+            const st = currentTutorialStep();
+            if(st) applyTutorialStepContext(st);
+            render();
+          } else {
+            startTutorial();
+          }
+        },
+        title: tutOn ? 'チュートリアルを再表示' : 'チュートリアルを開始'
+      }, tutOn ? 'チュートリアル中' : 'チュートリアル'));
+    }
   }
   utilG.appendChild(el('button',{class:'btn btn-small', onclick:doExportSave}, '書出'));
   utilG.appendChild(el('button',{class:'btn btn-small', onclick:doImportSave}, '読込'));
@@ -10656,6 +10661,18 @@ function getTutorialVisualHtml(step){
       </div>`,
     'done': `
       <div class="tut-visual">
+        <div class="tv-title">経営モードの要点</div>
+        <div class="tut-flow">
+          <div class="tf-step on"><b>①方針・投資</b>単価・営業</div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step on"><b>②採用・人事</b>定員・役員</div>
+          <div class="tf-arrow">→</div>
+          <div class="tf-step ok"><b>③現場・契約</b>更新・顧客</div>
+        </div>
+        <div class="tut-callout good">経営会議は社員150名超＋執行役員4名で解放。困ったら学習タブと取締役会助言をどうぞ。</div>
+      </div>`,
+    'an-done': `
+      <div class="tut-visual">
         <div class="tv-title">運用の要点</div>
         <div class="tut-flow">
           <div class="tf-step on"><b>①カバレッジ</b>標準以上</div>
@@ -10995,7 +11012,7 @@ const ANALYST_TUTORIAL_STEPS = [
     id:'done',
     title:'チュートリアル完了',
     body:'基本は以上です。【要点】①カバレッジを標準以上 ②運用で市場を切替 ③未保有カードの＋％でIC審査→承認と同時に約定（枠内なら追加買い可、超えたら再IC） ④買付後はロック期間と売却コストに注意 ⑤四季報で前期・今期・中計を確認 ⑥総会の業績は報告、議案で議決 ⑦AUM目標（NAV開始来20倍）とLP分配の条件を意識。マンデートに沿った配分と対ベンチ超過を積み上げましょう。\n\nこのように、銘柄をカバレッジし、あらゆる計算やマクロ経済指標も考慮し、複雑な金融工学を駆使して厳格なルールの下、ファンドポジションを構築していきます。本ゲームでは簡易的なスキームではありますが、ゲームを通じてエレベーター業界ファンドの学習一助になれば幸いです。',
-    visualId:'done',
+    visualId:'an-done',
     target:null,
     tab:'overview',
   },
@@ -11818,8 +11835,12 @@ function placeTutorialGuide(){
       advanceTutorialToNext();
     };
     if(!_hideNext) acts.appendChild(skipN);
-    /* 機関投資家・実習導入画面のみスキップ可（以降の実習ステップには出さない） */
-    if(step.id==='an-practice-intro'){
+    /* 機関投資家：最初のステップ(bgm)と実習導入画面のみスキップ可（以降の実習ステップには出さない） */
+    var _isAn = (typeof isAnalystMode==='function' && isAnalystMode(state));
+    var _isAnFirst = (step.id==='bgm' && _isAn);
+    /* 経営モード（CEO）：全手順でスキップ可。機関投資家・社外取は従来どおり */
+    var _isMgmtTut = !_isAn && !(typeof isOutsideDirectorMode==='function' && isOutsideDirectorMode(state));
+    if(step.id==='an-practice-intro' || _isAnFirst || _isMgmtTut){
       const skipPractice = document.createElement('button');
       skipPractice.className = 'btn btn-small btn-danger';
       skipPractice.textContent = 'スキップ';
@@ -11828,7 +11849,10 @@ function placeTutorialGuide(){
         e.stopPropagation();
         try{
           if(typeof showConfirmOverlay==='function'){
-            showConfirmOverlay('実習をスキップしてチュートリアルを終了しますか？', function(){ dismissTutorial(state); });
+            var _msg = _isMgmtTut
+              ? 'チュートリアルをスキップして本編を始めますか？（創業支援補助金は受け取れません）'
+              : (_isAnFirst ? 'チュートリアルをスキップして本編を始めますか？' : '実習をスキップしてチュートリアルを終了しますか？');
+            showConfirmOverlay(_msg, function(){ dismissTutorial(state); });
           } else {
             dismissTutorial(state);
           }
@@ -13063,6 +13087,11 @@ function totalEmployeeCount(s){
   const execN = (typeof EXECUTIVES!=='undefined' ? EXECUTIVES : []).filter(ex=>s.executives && s.executives[ex.id]).length;
   return base + execN;
 }
+function boardAdviceUnlocked(s){
+  /* 取締役会助言・CEOダッシュボード：社員30名超で解禁 */
+  if(!s) return false;
+  return totalEmployeeCount(s) > 30;
+}
 function ceoMeetingUnlocked(s){
   if(!s) return false;
   const staffOk = totalEmployeeCount(s) > 150;
@@ -13346,14 +13375,25 @@ function renderManagementPanel(){
 
   // 経営会議タブ専用：CEO NOW〜長期レビューまでを一画面に統合
   const meetingWrap = el('div',{class:'mgmt-sec', 'data-mgmt-sub':'meeting', 'data-tut':'mgmt-meeting'});
-  meetingWrap.appendChild(renderCeoConference(s));
-  try{ meetingWrap.appendChild(renderCoachPanel()); }catch(e){}
+  const boardUnlocked = (typeof boardAdviceUnlocked==='function') ? boardAdviceUnlocked(s) : (totalEmployeeCount(s) > 30);
+  if(!boardUnlocked){
+    const boardLock = el('div',{class:'action-block'});
+    boardLock.appendChild(el('div',{class:'title'}, '取締役会 — 未解放'));
+    boardLock.appendChild(el('div',{class:'desc'},
+      '社員数が30名を超えると、取締役会からの助言とCEOダッシュボードが使えます。現在 '+totalEmployeeCount(s)+'名です。採用を進めて組織を拡大してください。'));
+    meetingWrap.appendChild(boardLock);
+  } else {
+    meetingWrap.appendChild(renderCeoConference(s));
+    try{ meetingWrap.appendChild(renderCoachPanel()); }catch(e){}
+  }
   const unlock = ceoMeetingUnlockStatus(s);
   if(!unlock.unlocked){
     const lock = el('div',{class:'action-block'});
     lock.appendChild(el('div',{class:'title'}, '正式な経営会議（執行役員制度）— 未解放'));
     lock.appendChild(el('div',{class:'desc'},
-      '部門長・執行役員が揃った会社規模になって初めて、部門案の承認とPDCAサイクルを回せます。ダッシュボードと取締役会助言はいつでも参照できます。'));
+      boardUnlocked
+        ? '部門長・執行役員が揃った会社規模になって初めて、部門案の承認とPDCAサイクルを回せます。取締役会助言とダッシュボードは参照できます。'
+        : '部門長・執行役員が揃った会社規模になって初めて、部門案の承認とPDCAサイクルを回せます。先に社員30名超で取締役会機能が解禁されます。'));
     const req = el('div',{class:'field-hint', style:'margin-top:8px;line-height:1.7;'});
     req.appendChild(el('div',{}, 'PDCA解放条件'));
     req.appendChild(el('div',{}, '・社員数 150名超（現在 '+unlock.staff+'名）'+(unlock.staffOk?' ✓':' ←未達')));
@@ -56056,7 +56096,7 @@ CIOスコア: ${Math.round(s.v7.score)}（${s.v7.grade}）／変化 ${cioDelta>=
         setTimeout(function(){
           wrapShikiho();
           installAgmHook();
-          enrichAgmModal();
+          if(enrichAgmModal() && typeof window.render==='function'){ try{ window.render(); }catch(e){} }
         },0);
       }catch(e){}
       return ret;
@@ -56075,7 +56115,7 @@ CIOスコア: ${Math.round(s.v7.score)}（${s.v7.grade}）／変化 ${cioDelta>=
       ensureAgmProposals(s);
       if(key!==_lastAgmKey){
         _lastAgmKey = key;
-        enrichAgmModal();
+        if(enrichAgmModal() && typeof window.render==='function'){ try{ window.render(); }catch(e){} }
       }
     }catch(e){}
   }, 400);
